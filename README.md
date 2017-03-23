@@ -1,2 +1,3 @@
 # Todo_API
-A Rest TodoList API 
+A REST TodoList API 
+* an API for managing RESTful todolists.
