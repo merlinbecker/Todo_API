@@ -1,0 +1,37 @@
+# Example YAML to get you started quickly.
+# Be aware that YAML has indentation based scoping.
+# Code completion support is available so start typing for available options.
+swagger: '2.0'
+# This is your document metadata
+info:
+  version: "0.0.1"
+  title: TODO API
+  description: an API for managing todo lists and getting have-done lists
+  contact:
+    name: MerlinBecker
+    url: https://github.com/merlinbecker/Todo_API
+host: merl.be
+basePath: /todo
+# Describe your paths here
+paths:
+  # This is a path endpoint. Change it.
+  /settings:
+    # This is a HTTP operation
+    get:
+      # Describe this verb here. Note: you can use markdown
+      description: Gets the settings with which the server is running
+      produces:
+      - application/json
+      # Expected responses for this operation:
+      responses:
+        # Response code
+        200:
+          description: Settings response
+          schema:
+            $ref: "#/definitions/settingsObj"
+definitions:
+  settingsObj:
+    type: object
+    properties:
+      uses_basic_auth:
+        type: boolean
