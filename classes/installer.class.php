@@ -66,18 +66,20 @@ class Installer{
 	function checkInstallNeeds(){
 		$needs=array();
 		
-    if(!isset($this->conf['uses_htaccess'])){
-      $needs[]='uses_htaccess';
+    if(!isset($this->conf['uses_basic_auth'])){
+      $needs[]='uses_basic_auth';
     }
-    else if(isset($this->conf['uses_htaccess'])){
-      if($this->conf['uses_htaccess']=='yes'){
+    else if(isset($this->conf['uses_basic_auth'])){
+      if($this->conf['uses_basic_auth']=='yes'){
         
       }
     }
 		
 		
 		if(!isset($this->conf['uses_g_api'])){
-			$needs[]='uses_g_api';
+			//we don't use that at the moment
+			//commented out 12.04.2017
+			//$needs[]='uses_g_api';
 		}
 		
 		else if(isset($this->conf['uses_g_api'])){
@@ -143,6 +145,7 @@ class Installer{
 					$sql.="`u_id` BIGINT NOT NULL AUTO_INCREMENT ,";
 					$sql.=" `u_name` VARCHAR(256) NOT NULL ,";
 					$sql.="`u_email` VARCHAR(256) NOT NULL , ";
+					$sql.="`u_password` VARCHAR(256) NOT NULL , ";
 					$sql.="`oauth_user_id` VARCHAR(256) NOT NULL ,";
 					$sql.=" `oauth_user_page` VARCHAR(256) NOT NULL ,";
 					$sql.=" `oauth_user_photo` VARCHAR(256) NOT NULL ,";
@@ -218,7 +221,7 @@ class Installer{
   get the configfile
   **/
   function getConfig(){
-    return json_encode($this->conf);
+    return $this->conf;
   }
   
 	/***

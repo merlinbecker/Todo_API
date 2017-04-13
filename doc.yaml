@@ -1,6 +1,3 @@
-# Example YAML to get you started quickly.
-# Be aware that YAML has indentation based scoping.
-# Code completion support is available so start typing for available options.
 swagger: '2.0'
 # This is your document metadata
 info:
@@ -13,10 +10,16 @@ info:
 host: merl.be
 basePath: /todo
 # Describe your paths here
+schemes: ["http"]
+
+security:
+  - UserSecurity: []
+  
 paths:
   # This is a path endpoint. Change it.
   /settings:
     # This is a HTTP operation
+
     get:
       # Describe this verb here. Note: you can use markdown
       description: Gets the settings with which the server is running
@@ -26,12 +29,76 @@ paths:
       responses:
         # Response code
         200:
-          description: Settings response
+          description: successful settings response
           schema:
             $ref: "#/definitions/settingsObj"
+          examples:
+            application/json: |-
+              {
+                "uses_basic_auth": true,
+                "basic_auth_admin": "todoadmin",
+                "basic_auth_pw": "root",
+                "db_host": "localhost",
+                "db_user": "root",
+                "db_password": "root",
+                "db_database":"todo_db"
+              }
+        501: 
+          description: Server not set up, misses specified data
+          schema: 
+            $ref: "#/definitions/settingsObj"
+          examples:
+            application/json: |-
+              [
+              "uses_basic_auth",
+              "db_host",
+              "db_user",
+              "db_password",
+              "db_database"
+              ]
+        401:
+          description: No access, because wrong login data
+      security:
+        - AdminSecurity: []
+    put:
+      description: Adds settings for the server
+      consumes:
+        - application/json
+      parameters:
+        - name: settings
+          required: true
+          in: body
+          description: The pet JSON you want to post
+          schema:
+            $ref: "#/definitions/settingsObj"
+      security:
+        - AdminSecurity: []
+      responses:
+        201:
+          description: Settings successfully created
+        401:
+          description: No Access, because login data are missing (if already defined in settings)
+securityDefinitions:
+  UserSecurity:
+    type: basic
+  AdminSecurity:
+    type: basic
+    
 definitions:
   settingsObj:
     type: object
     properties:
       uses_basic_auth:
         type: boolean
+      basic_auth_admin:
+        type: string
+      basic_auth_pw:
+        type: string
+      db_host:
+        type: string
+      db_user:
+        type: string
+      db_password:
+        type: string
+      db_database:
+        type: string
