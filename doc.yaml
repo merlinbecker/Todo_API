@@ -16,10 +16,93 @@ security:
   - UserSecurity: []
   
 paths:
+  /{username}/{projectname}/:
+    get:
+      description: get all todos for user {username} and project {project´name}. set project to "all" for all todos of every project
+      parameters:
+        - name: username 
+          in: path
+          type: string
+          required: true
+          description: The name of the user
+        - name: projectname 
+          in: path
+          type: string
+          required: true
+          description: The name of the project
+      security:
+        - UserSecurity: []
+      responses:
+        200:
+          description: successful returned todo list
+        401:
+          description: No access, because wrong user login data
+
+  /users:
+    get:
+      description: Gets all todo list users
+      responses:
+        200:
+          description: successful users response
+          schema:
+            type: array
+            items:
+              $ref: "#/definitions/userObj"
+          examples:
+            application/json: |-
+              [{
+                 "u_id":1,
+                 "u_name":"foo",
+                 "u_email":"foo@example.com"
+              },{...}]
+        401:
+          description: No access, because wrong login data
+      produces:
+        - application/json
+      security: 
+        - AdminSecurity: []
+    delete:
+      description: deletes a user from the list
+      consumes:
+        - application/json
+      parameters:
+        - name: user
+          required: true
+          in: body
+          description: data for new user
+          schema:
+            type: array
+            items: 
+              $ref: "#/definitions/userObj"
+      security:
+        - AdminSecurity: []
+      responses:
+        200: 
+          description: user deleted
+        400: 
+          description: insufficient or wrong data
+    put: 
+      description: adds user to the list
+      consumes:
+        - application/json
+      parameters:
+        - name: user
+          required: true
+          in: body
+          description: data for new user
+          schema:
+            $ref: "#/definitions/newUserObj"
+      security:
+        - AdminSecurity: []
+      responses:
+        201: 
+          description: a new user was created
+        400: 
+          description: insufficient or wrong data
+          
   # This is a path endpoint. Change it.
   /settings:
     # This is a HTTP operation
-
     get:
       # Describe this verb here. Note: you can use markdown
       description: Gets the settings with which the server is running
@@ -61,14 +144,14 @@ paths:
       security:
         - AdminSecurity: []
     put:
-      description: Adds settings for the server
+      description: alters settings for the server
       consumes:
         - application/json
       parameters:
         - name: settings
           required: true
           in: body
-          description: The pet JSON you want to post
+          description: The settings JSON transmitted to the server
           schema:
             $ref: "#/definitions/settingsObj"
       security:
@@ -85,6 +168,26 @@ securityDefinitions:
     type: basic
     
 definitions:
+  newUserObj:
+    type: object
+    properties:
+      username: 
+        type: string
+      user_email:
+        type: string
+      user_password:
+        type: string
+      user_pw_repeat:
+        type: string
+  userObj:
+    type: object
+    properties:
+      u_id:
+        type: integer
+      u_name:
+        type: string
+      u_email:
+        type: string
   settingsObj:
     type: object
     properties:

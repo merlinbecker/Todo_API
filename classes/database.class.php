@@ -92,10 +92,10 @@ class Database{
 		return $this->stmt->rowCount();
 	}
 	public function lastInsertId(){
-		return $this->dbd->lastInsertId();
+		return $this->dbh->lastInsertId();
 	}
 	public function beginTransaction(){
-		return $this->dbd->beginTransaction();
+		return $this->dbh->beginTransaction();
 	}
 	public function endTransaction(){
 		return $this->dbh->commit();

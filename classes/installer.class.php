@@ -143,47 +143,71 @@ class Installer{
 				if(strlen($database->error)>0){
 					$sql="CREATE TABLE `".Installer::sharedInstaller()->conf['db_database']."`.`tl_users` ( ";
 					$sql.="`u_id` BIGINT NOT NULL AUTO_INCREMENT ,";
-					$sql.=" `u_name` VARCHAR(256) NOT NULL ,";
-					$sql.="`u_email` VARCHAR(256) NOT NULL , ";
-					$sql.="`u_password` VARCHAR(256) NOT NULL , ";
-					$sql.="`oauth_user_id` VARCHAR(256) NOT NULL ,";
-					$sql.=" `oauth_user_page` VARCHAR(256) NOT NULL ,";
-					$sql.=" `oauth_user_photo` VARCHAR(256) NOT NULL ,";
-					$sql.=" `refresh_token` VARCHAR(256) NOT NULL , ";
-					$sql.=" `last_login` BIGINT NOT NULL , ";
-					$sql.="PRIMARY KEY (`u_id`)) ENGINE = InnoDB;";
+					$sql.="`u_name` VARCHAR(255) NOT NULL ,";
+					$sql.="`u_email` VARCHAR(255) NOT NULL , ";
+					$sql.="`u_password` VARCHAR(255) NOT NULL , ";
+					$sql.="PRIMARY KEY (`u_id`), UNIQUE KEY `u_name` (`u_name`), UNIQUE KEY `u_email` (`u_email`)) ENGINE = InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;";
 					$database->query($sql);
 					$database->execute();
 					echo $database->error;
 				}
-				
 				
 				//check if table tl_tasks exists
 				$database->query("SELECT 1 FROM tl_tasks LIMIT 1;");
 				$database->execute();
 				if(strlen($database->error)>0){
 					$sql="CREATE TABLE `".Installer::sharedInstaller()->conf['db_database']."`.`tl_tasks` ( ";
-					$sql.="`t_id` BIGINT NOT NULL AUTO_INCREMENT ,";
-					$sql.="`t_desc` TEXT NOT NULL ,";
+					$sql.="`task_id` BIGINT NOT NULL AUTO_INCREMENT ,";
+					$sql.="`description` TEXT NOT NULL ,";
 					$sql.="`urgent` TINYINT NOT NULL DEFAULT '0' ,";
 					$sql.="`important` TINYINT NOT NULL DEFAULT '0' ,";
-					$sql.="`done` TINYINT NOT NULL DEFAULT '0' ,";
-					$sql.="`expiration` INT NULL DEFAULT '0' ,";
+					$sql.="`status` VARCHAR(255) NOT NULL DEFAULT 'todo' ,";
+					$sql.="`deadline` INT NULL DEFAULT '0' ,";
 					$sql.="`repeat_interval` INT NOT NULL DEFAULT '0' ,";
 					$sql.="`repeat_since` INT NOT NULL DEFAULT '0' ,";
 					$sql.="`repeat_until` INT NOT NULL DEFAULT '0' ,";
-					$sql.="PRIMARY KEY (`t_id`)) ENGINE = InnoDB";
+					$sql.="PRIMARY KEY (`task_id`)) ENGINE = InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin";
 					$database->query($sql);
 					$database->execute();
 					echo $database->error;	
 				}
+				
+				//check if table tl_projects exists
+				$database->query("SELECT 1 FROM tl_projects LIMIT 1;");
+				$database->execute();
+				if(strlen($database->error)>0){
+					$sql="CREATE TABLE `".Installer::sharedInstaller()->conf['db_database']."`.`tl_projects` ( ";
+					$sql.="`project_id` BIGINT NOT NULL AUTO_INCREMENT ,";
+					$sql.="`project_name` VARCHAR(255) NOT NULL,";
+					$sql.="`user_id` BIGINT NOT NULL  ,";
+					$sql.="PRIMARY KEY (`project_id`)) ENGINE = InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin";
+					$database->query($sql);
+					$database->execute();
+					echo $database->error;	
+				}
+				
+				//check if table tl_projects_tasks exists
+				$database->query("SELECT 1 FROM tl_projects_tasks LIMIT 1;");
+				$database->execute();
+				if(strlen($database->error)>0){
+					$sql="CREATE TABLE `".Installer::sharedInstaller()->conf['db_database']."`.`tl_projects_tasks` ( ";
+					$sql.="`project_id` BIGINT NOT NULL ,";
+					$sql.="`task_id` BIGINT NOT NULL )";
+					$sql.="ENGINE = InnoDB;";
+					$database->query($sql);
+					$database->execute();
+					echo $database->error;	
+				}
+				
 				
 				//check if table tl_tasks_history_done exists
 				$database->query("SELECT 1 FROM tl_tasks_history LIMIT 1;");
 				$database->execute();
 				if(strlen($database->error)>0){
 					$sql="CREATE TABLE `".Installer::sharedInstaller()->conf['db_database']."`.`tl_tasks_history` ( ";
-					$sql.="`t_id` INT NOT NULL , `done` INT NOT NULL ) ENGINE = InnoDB;";
+					$sql.="`t_id` INT NOT NULL ,";
+					$sql.="`status` VARCHAR(255) NOT NULL,";
+					$sql.="`done` INT NOT NULL ) ENGINE = InnoDB;";
 					$database->query($sql);
 					$database->execute();
 					echo $database->error;

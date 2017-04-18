@@ -89,6 +89,94 @@ switch($params[0]){
      die();
    }
   break;
+  case "users":
+	if(is_admin()){
+		$database=new Database();
+		if($method=="PUT") {
+			$payload =json_decode(file_get_contents('php://input'));
+			if($payload->username==""||$payload->user_email==""||$payload->user_password==""||($payload->user_password!=$payload->user_pw_repeat)){
+				http_response_code(400);
+				die();
+			}
+			else{
+			$sql="INSERT INTO `".Installer::sharedInstaller()->conf['db_database']."`.`tl_users` (u_name,u_email,u_password) VALUES(:u_name, :u_email, :u_password) ON DUPLICATE KEY UPDATE   u_name=:u_name, u_email=:u_email, u_password=:u_password";
+			$database->query($sql);
+			$database->bind(':u_name',$payload->username);
+			$database->bind(':u_email',$payload->user_email);
+			$database->bind(':u_password',password_hash($payload->user_password, PASSWORD_DEFAULT));
+			$database->execute();
+			$p_error=$database->error;
+			if($p_error==""){
+				http_response_code(201);
+				die();
+			}
+			echo $p_error;
+			}
+		}
+		else if($method=="DELETE"){
+			$payload =json_decode(file_get_contents('php://input'));
+			if(!is_array($payload)){
+				http_response_code(400);
+				die();
+			}
+			
+			$database->beginTransaction();
+			foreach ($payload as $p){
+			if($p->u_id==""||$p->u_name==""||$p->u_email==""){
+				$database->cancelTransaction();
+				http_response_code(400);
+				die();
+			}
+			else{
+				$sql="DELETE FROM `".Installer::sharedInstaller()->conf['db_database']."`.`tl_users` WHERE u_id=:u_id AND u_name=:u_name AND u_email=:u_email";
+				$database->query($sql);
+				$database->bind(':u_id',$p->u_id);
+				$database->bind(':u_name',$p->u_name);
+				$database->bind(':u_email',$p->u_email);
+				$database->execute();
+				if($database->error!=""){
+					$database->cancelTransaction();
+					http_response_code(400);
+					die();
+				}
+			}
+			}
+			$database->endTransaction();
+		}
+		else{
+			//TODO: Für später aufheben!
+			//, FROM_UNIXTIME(last_login, '%Y-%m-%d %H:%i:%s') 
+			$sql="SELECT u_id,u_name,u_email FROM `".Installer::sharedInstaller()->conf['db_database']."`.`tl_users`";
+			$database->query($sql);
+			$database->execute();
+			echo $database->error;
+			$output=$database->resultset();
+		}
+	  }
+	else{
+		http_response_code(401);
+		die();
+	}
+  break;	
+	default:
+	//bail out if username is empty
+	if($params[0]==""){
+		http_response_code(404);
+		die();
+	}
+	//check if user is logged in
+	$database=new Database();
+	$sql="SELECT * FROM tl_users WHERE u_name=:u_name";
+	$database->query($sql);
+	$database->bind(':u_name',$params[0]);
+	if($user['u_name']==$_SERVER['PHP_AUTH_USER']&&password_verify($password,string $hash ))
+		$user=$database->single();
+	
+	
+	 //this must be a username
+	 echo "USER :".$params[0]."   ";
+	 echo "PROJECT ".$params[1];
+	break;
 }
 
 $possible_errors=ob_get_contents();
