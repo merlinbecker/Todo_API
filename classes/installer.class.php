@@ -17,6 +17,7 @@ checks, if all login data is there
  * @author beckmn
  * @version 1.0
  * @date 30.01.2017
+ * @TODO make a generic installer class
  * **/
 class Installer{
 	/** some basic consts **/
@@ -207,7 +208,21 @@ class Installer{
 					$sql="CREATE TABLE `".Installer::sharedInstaller()->conf['db_database']."`.`tl_tasks_history` ( ";
 					$sql.="`t_id` INT NOT NULL ,";
 					$sql.="`status` VARCHAR(255) NOT NULL,";
-					$sql.="`done` INT NOT NULL ) ENGINE = InnoDB;";
+					$sql.="`user_id` INT NOT NULL ,";
+					$sql.="`done` INT NOT NULL ) ENGINE = InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;";
+					$database->query($sql);
+					$database->execute();
+					echo $database->error;
+				}
+				
+				//check if table tl_users_tasks exists
+				$database->query("SELECT 1 FROM tl_users_tasks LIMIT 1;");
+				$database->execute();
+				if(strlen($database->error)>0){
+					$sql="CREATE TABLE `".Installer::sharedInstaller()->conf['db_database']."`.`tl_users_tasks` ( ";
+					$sql.="`t_id` INT NOT NULL ,";
+					$sql.="`user_id` INT NOT NULL";
+					$sql.=") ENGINE = InnoDB;";
 					$database->query($sql);
 					$database->execute();
 					echo $database->error;

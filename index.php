@@ -67,7 +67,6 @@ if($output!=""){
   }
 }
 
-
 switch($params[0]){
   case "settings":
     //check,if admin permission
@@ -157,28 +156,41 @@ switch($params[0]){
 		http_response_code(401);
 		die();
 	}
-  break;	
+  break;
+	case "tasks":
+		echo "ITS A SPECIFIC TASK, BUT IT IS NOT IMPLEMENTED YET!";
+	break;
 	default:
 	//bail out if username is empty
 	if($params[0]==""){
 		http_response_code(404);
 		die();
-	}
+	}	
 	//check if user is logged in
 	$database=new Database();
 	$sql="SELECT * FROM tl_users WHERE u_name=:u_name";
 	$database->query($sql);
 	$database->bind(':u_name',$params[0]);
-	if($user['u_name']==$_SERVER['PHP_AUTH_USER']&&password_verify($password,string $hash ))
-		$user=$database->single();
-	
-	
-	 //this must be a username
-	 echo "USER :".$params[0]."   ";
-	 echo "PROJECT ".$params[1];
+	$user=$database->single();
+	if($user['u_name']==$_SERVER['PHP_AUTH_USER']&&password_verify($_SERVER['PHP_AUTH_PW'],$user['u_password']))
+	{		
+		//if second param ist a number, than it's a task, else it's a project
+		//if the project is 'all' or empty, then it's all tasks for that user
+		//if the method is PUT, then a todo is put here
+		if($params[1]==""){
+			if($method=="PUT"){
+				
+			}
+		}
+		
+		//if()
+	}
+	else{
+		http_response_code(401);
+		die();
+	}
 	break;
 }
-
 $possible_errors=ob_get_contents();
 ob_end_clean();
 if(strlen($possible_errors)>0){

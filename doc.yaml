@@ -16,9 +16,94 @@ security:
   - UserSecurity: []
   
 paths:
-  /{username}/{projectname}/:
+  /{username}:
     get:
-      description: get all todos for user {username} and project {project´name}. set project to "all" for all todos of every project
+      description: get a list of all projects the user has
+      parameters:
+      - name: username 
+        in: path
+        type: string
+        required: true
+        description: The name of the user
+      responses: 
+        200: 
+          description: successful returned list of projects
+          schema:
+            type: array
+            items:
+              $ref: "#/definitions/projectObj"
+          examples:
+            application/json: |-
+              [{
+                 "projectname":"foo",
+                 "todos": 10,
+                 "havedones":5,
+                 "rel":"http://example.com/foouser/foo"
+              },{...}]
+        401:
+          description: No access, because wrong login data
+      security:
+        - UserSecurity: []
+    post:
+      description: post todo object(s) into the list
+      parameters:
+      - name: username 
+        in: path
+        type: string
+        required: true
+        description: The name of the user
+      - name: todos
+        required: true
+        in: body
+        description: array of new tasks
+        schema:
+          type: array
+          items:
+            $ref: "#/definitions/taskObj"
+      security:
+        - UserSecurity: []
+      responses:
+        201: 
+          description: Tasks have been created
+        401:
+          description: No permission to create todos
+        400: 
+          description: insufficient or wrong data
+  /tasks/{id}:
+    get:
+      description: get a specific task by id
+      parameters:
+      - name: id 
+        in: path
+        type: integer
+        required: true
+        description: The task by it's id
+      security: 
+         - UserSecurity: []
+      responses:
+        200:
+          description: successful returned todo list
+        401:
+          description: No access, because wrong user login data
+    put:
+      parameters:
+      - name: id 
+        in: path
+        type: integer
+        required: true
+        description: the tasks ID
+      security: 
+         - UserSecurity: []
+      responses:
+        200:
+          description: successful modified
+        401:
+          description: No access, because wrong user login data
+        400: 
+          description: insufficient or wrong data
+  /{username}/{projectname}:
+    get:
+      description: get all tasks for user {username} and project {projectname}. set project to "all" for all todos of every project
       parameters:
         - name: username 
           in: path
@@ -34,10 +119,21 @@ paths:
         - UserSecurity: []
       responses:
         200:
-          description: successful returned todo list
+          description: successful returned task list
+          schema:
+            type: array
+            items:
+              $ref: "#/definitions/brief_taskobj"
+          examples:
+            application/json: |-
+              [{
+                 "description":"footask",
+                 "status":"todo",
+                 "rel":"http://example.com/tasks/5"
+              },{...}]
         401:
           description: No access, because wrong user login data
-
+  
   /users:
     get:
       description: Gets all todo list users
@@ -81,7 +177,7 @@ paths:
           description: user deleted
         400: 
           description: insufficient or wrong data
-    put: 
+    post: 
       description: adds user to the list
       consumes:
         - application/json
@@ -168,6 +264,56 @@ securityDefinitions:
     type: basic
     
 definitions:
+  projectObj:
+    type: object
+    properties:
+      projectname: 
+        type: string
+      todos:
+        type: integer
+      havedones:
+        type: integer
+      rel:
+        type: string
+  brief_taskobj:
+    type: object
+    properties:
+      description:
+        type: string
+      status:
+        type: string
+      rel:
+        type: string
+  taskObj:
+    type: object
+    required: [task_description]
+    properties:
+      task_id:
+        type: integer
+        description: not considered when inserting a task
+      task_description:
+        type: string
+      urgent:
+        type: boolean
+      important:
+        type: boolean
+      status:
+        type: string
+        enum: ["todo", "have-done", "cancelled"]
+        description: default is 'todo'
+      deadline: 
+        type: string
+        format: date
+      repeat_interval:
+        type: string
+      repeat_since:
+        type: string
+      repeat_until:
+        type: string
+      projects:
+        type: array
+        items:
+          type: string
   newUserObj:
     type: object
     properties:
@@ -177,8 +323,11 @@ definitions:
         type: string
       user_password:
         type: string
+        format: password
       user_pw_repeat:
         type: string
+        format: password
+  
   userObj:
     type: object
     properties:
@@ -188,6 +337,7 @@ definitions:
         type: string
       u_email:
         type: string
+        
   settingsObj:
     type: object
     properties:
@@ -197,11 +347,13 @@ definitions:
         type: string
       basic_auth_pw:
         type: string
+        format: password
       db_host:
         type: string
       db_user:
         type: string
       db_password:
         type: string
+        format: password
       db_database:
         type: string
