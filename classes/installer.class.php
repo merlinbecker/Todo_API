@@ -181,7 +181,7 @@ class Installer{
 					$sql.="`project_id` BIGINT NOT NULL AUTO_INCREMENT ,";
 					$sql.="`project_name` VARCHAR(255) NOT NULL,";
 					$sql.="`user_id` BIGINT NOT NULL  ,";
-					$sql.="PRIMARY KEY (`project_id`)) ENGINE = InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin";
+					$sql.="PRIMARY KEY (`project_id`),UNIQUE KEY `project_name` (`project_name`)) ENGINE = InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin";
 					$database->query($sql);
 					$database->execute();
 					echo $database->error;	
@@ -208,8 +208,7 @@ class Installer{
 					$sql="CREATE TABLE `".Installer::sharedInstaller()->conf['db_database']."`.`tl_tasks_history` ( ";
 					$sql.="`t_id` INT NOT NULL ,";
 					$sql.="`status` VARCHAR(255) NOT NULL,";
-					$sql.="`user_id` INT NOT NULL ,";
-					$sql.="`done` INT NOT NULL ) ENGINE = InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;";
+					$sql.="`user_id` INT NOT NULL, `timestamp` INT NOT NULL ) ENGINE = InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;";
 					$database->query($sql);
 					$database->execute();
 					echo $database->error;

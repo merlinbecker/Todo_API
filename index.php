@@ -10,6 +10,10 @@ This is the second approach of a RESTful todo list.
 The github repository can be found here
 https://github.com/merlinbecker/Todo_API
 
+20.04.2017:
+TODO: Write test cases and then: 
+TODO: Refactor 
+
 a first (more UI based) version of this api can be found here:
 https://github.com/beophyr/TaskList
 
@@ -178,12 +182,135 @@ switch($params[0]){
 		//if the project is 'all' or empty, then it's all tasks for that user
 		//if the method is PUT, then a todo is put here
 		if($params[1]==""){
-			if($method=="PUT"){
+			if($method=="POST"){
+				$payload =json_decode(file_get_contents('php://input'));
+				if(!is_array($payload)){
+					http_response_code(400);
+					die();
+				}
 				
+				$database->beginTransaction();
+				foreach($payload as $task){
+					//check what is delivered
+					if(!isset($task->task_description)){
+						$database->cancelTransaction();
+						http_response_code(400);
+						die();
+					}
+					
+					if($task->task_description==""){
+						$database->cancelTransaction();
+						http_response_code(400);
+						die();
+					}
+					
+					//1. insert the specific task
+					$insert_array=array();
+					$insert_array["description"]=$task->task_description;
+					if(isset($task->urgent)){
+						$insert_array["urgent"]=$task->urgent;
+					}
+					if(isset($task->important)){
+						$insert_array['important']=$task->important;
+					}
+					if(isset($task->status)){
+						$insert_array['status']=$task->status;
+					}
+					if(isset($task->deadline)){
+						$t=strtotime($task->deadline);
+						$insert_array['deadline']=$t;
+					}
+					if(isset($task->repeat_interval)){
+						$t=strtotime($task->repeat_interval);
+						$diff=time();
+						$t=t-$diff;
+						$insert_array['repeat_interval']=$t;
+					}
+					if(isset($task->repeat_interval)){
+						$t=strtotime($task->repeat_interval);
+						if($t>0){
+							$diff=time();
+							$t=t-$diff;
+						}
+						$insert_array['repeat_interval']=$t;
+					}
+					if(isset($task->repeat_since)){
+						$t=strtotime($task->repeat_since);
+						$insert_array['repeat_since']=$t;
+					}
+					if(isset($task->repeat_until)){
+						$t=strtotime($task->repeat_until);
+						$insert_array['repeat_until']=$t;
+					}
+					
+					$keys=implode(",",array_keys($insert_array));
+					$vals_masked=":".str_replace(",",",:",$keys);
+					
+					$sql="INSERT INTO tl_tasks (".$keys.") VALUES (".$vals_masked.")";
+					$database->query($sql);
+					
+					foreach($insert_array as $key=>$item){
+						$database->bind(":".$key,$item);
+					}
+					
+					$database->execute();
+					
+					$taskid=$database->lastInsertId();
+					
+					$error=$database->error;
+				
+					$sql="INSERT INTO tl_users_tasks (t_id,user_id) VALUES (".$taskid.",".$user['u_id'].")";
+					$database->query($sql);
+					$database->execute();
+					
+					$error.=$database->error;
+					
+					if(is_array($task->projects)){
+						foreach($task->projects as $proj){
+							$database->query("SELECT project_id FROM tl_projects WHERE project_name=:project_name AND user_id=:user_id");
+							$database->bind(":project_name",$proj);
+							$database->bind(":user_id",$user['u_id']);
+							$res=$database->single();
+							$error.=$database->error;
+							if(!is_numeric($res['project_id'])){
+								$database->query("INSERT INTO tl_projects (project_name,user_id) VALUES (:project_name,:user_id)");
+								$database->bind(":project_name",$proj);
+								$database->bind(":user_id",$user['u_id']);
+								$database->execute();
+								$error.=$database->error;
+								$res['project_id']=$database->lastInsertId();
+							}
+							
+							$database->query("INSERT INTO tl_projects_tasks (project_id,task_id) VALUES (:project_id,:task_id)");
+							$database->bind(":project_id",$res['project_id']);
+							$database->bind(":task_id",$taskid);
+							$database->execute();
+							$error.=$database->error;
+						}
+					}
+					//4. insert into history
+					$database->query("INSERT INTO tl_tasks_history (t_id,status,user_id,timestamp) VALUES (:t_id,:status,:user_id,:timestamp)");
+					$database->bind(":t_id",$taskid);
+					$database->bind(":status","created");
+					$database->bind(":user_id",$user['u_id']);
+					$database->bind(":timestamp",time());
+					$database->execute();
+					$error.=$database->error;
+					
+					
+					if($error!=""){
+					$database->cancelTransaction();
+					http_response_code(400);
+					echo $error;
+					die();
+					}
+				}
+				$database->endTransaction();
+				
+				echo "hier der payload!";
+				print_r($payload);
 			}
 		}
-		
-		//if()
 	}
 	else{
 		http_response_code(401);
