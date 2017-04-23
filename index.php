@@ -24,6 +24,7 @@ let's see how far we can get this time!
 /**
  * headers: allow cross origin access
  **/
+error_reporting(E_ERROR | E_WARNING | E_PARSE);
 header("Access-Control-Allow-Origin: *");
 
 /*
@@ -45,15 +46,30 @@ first step:
 get the path from the mod reqrite htaccess right and extract all variables needed.
 **/
 
+/**
+ * @TODO make a helper class out of this (and the absolute url)
+ * **/
 $accepts=explode(", ",$_SERVER['HTTP_ACCEPT']);
 $method=$_SERVER['REQUEST_METHOD'];
-$tempparams=explode("/",$_SERVER['REQUEST_URI']);
+//remove query from request uri
+$query_params=substr($_SERVER['REQUEST_URI'],strpos($_SERVER['REQUEST_URI'],"?")+1);
+
+if(!strpos($_SERVER['REQUEST_URI'],"?")===false)
+	$req_uri=substr($_SERVER['REQUEST_URI'],0,strpos($_SERVER['REQUEST_URI'],"?"));
+else 
+	$req_uri=$_SERVER['REQUEST_URI'];
+$tempparams=explode("/",$req_uri);
 $params=array();
 $params[]=$tempparams[2];
 $params[]=$tempparams[3];
+$params[]=$tempparams[4];
+
+$url_query=array();
+parse_str($query_params,$url_query);
+
 if($_SERVER['argc']>0){	
-	$query=array();
-	parse_str($_SERVER['argv'][0],$query);
+	echo "hier her!!";
+	parse_str($_SERVER['argv'][0],$url_query);
 }
 
 
@@ -95,7 +111,7 @@ switch($params[0]){
   case "users":
 	if(is_admin()){
 		$database=new Database();
-		if($method=="PUT") {
+		if($method=="POST") {
 			$payload =json_decode(file_get_contents('php://input'));
 			if($payload->username==""||$payload->user_email==""||$payload->user_password==""||($payload->user_password!=$payload->user_pw_repeat)){
 				http_response_code(400);
@@ -181,8 +197,103 @@ switch($params[0]){
 		//if second param ist a number, than it's a task, else it's a project
 		//if the project is 'all' or empty, then it's all tasks for that user
 		//if the method is PUT, then a todo is put here
+		/**
+		 * TODO: even allow if posted under a project and keep this project as default.
+		 * 
+		 * this is a default task creation routine 
+		 * 
+		 * @TODO auslagern
+		 * 
+		 * @TODO allow CSV values like 1,2,3
+		 * **/
 		if($params[1]==""){
-			if($method=="POST"){
+			if ($method=="GET"){
+				/*
+				usersummaryObj {
+					projects_count:
+					integer
+					projects_rel:
+					string
+					todos_count:
+					integer
+					todos_rel:
+					string
+					*/
+				//first, get number of projects for that user
+				$sql="SELECT COUNT(project_id) as projects_count FROM tl_projects WHERE user_id=:user_id";
+				$database->query($sql);
+				$database->bind(":user_id",$user['u_id']);
+				$res=$database->single();
+				
+				echo $database->error;
+				
+				$output['projects_count']=$res['projects_count'];
+				$absolute_url = full_url( $_SERVER );
+				$absolute_url=substr($absolute_url,0,strpos($absolute_url,$user['u_name'])).$user['u_name']."/"."projects/";
+				$output['projects_rel']=$absolute_url;
+				
+				//get count of all todos
+				$sql="SELECT COUNT(task_id) as todos_count FROM tl_tasks,tl_users_tasks WHERE tl_tasks.status=:status AND tl_users_tasks.t_id=tl_users_tasks.user_id AND tl_users_tasks.user_id=:user_id";
+				$database->query($sql);
+				$database->bind(":status","todo");
+				$database->bind(":user_id",$user['u_id']);
+				$res=$database->single();
+				
+				echo $database->error;
+				
+				$output['todos_count']=$res['todos_count'];
+				$absolute_url = full_url( $_SERVER );
+				$absolute_url=substr($absolute_url,0,strpos($absolute_url,$user['u_name'])).$user['u_name']."/"."tasks?show=todo";
+				$output['todos_rel']=$absolute_url;
+				
+			}}
+			
+			if($params[1]=="tasks"||$params[1]=="projects"){
+				if($method=="GET"){
+					if($params[1]=="tasks"){
+						/**
+						 *  description:
+								status:
+								rel: 
+						 **/
+						
+						$sql="SELECT task_id, description, status FROM tl_tasks, tl_users_tasks WHERE tl_users_tasks.t_id=task_id AND tl_users_tasks.user_id=:user_id";
+						
+						if(isset($url_query['show'])){
+							$sql.=" AND status=:status";
+						}
+						
+						$database->query($sql);
+						$database->bind(':user_id',$user['u_id']);
+						
+						if(isset($url_query['show'])){
+							$database->bind(":status",$url_query['show']);
+						}
+						
+						
+						$result=$database->resultset();
+						echo $database->error;
+						
+						foreach($result as &$item){
+							//generate url
+							$absolute_url = full_url( $_SERVER );
+							$absolute_url=substr($absolute_url,0,strpos($absolute_url,$user['u_name'])).$user['u_name']."/"."tasks/".$item['task_id'];
+							$item['rel']=$absolute_url;
+						}
+						$output=$result;
+					}
+				}
+				else if($method=="DELETE"){
+					/**@TODO  IMPLEMENT**/
+					http_response_code(501);
+					die();
+				}
+				else if($mehtod=="PUT"){
+					/**@TODO  IMPLEMENT**/
+					http_response_code(501);
+					die();
+				}
+				else if($method=="POST"){
 				$payload =json_decode(file_get_contents('php://input'));
 				if(!is_array($payload)){
 					http_response_code(400);
@@ -190,6 +301,8 @@ switch($params[0]){
 				}
 				
 				$database->beginTransaction();
+				
+				$newTasks=array();
 				foreach($payload as $task){
 					//check what is delivered
 					if(!isset($task->task_description)){
@@ -256,7 +369,7 @@ switch($params[0]){
 					$database->execute();
 					
 					$taskid=$database->lastInsertId();
-					
+					$newTasks[]=$taskid;
 					$error=$database->error;
 				
 					$sql="INSERT INTO tl_users_tasks (t_id,user_id) VALUES (".$taskid.",".$user['u_id'].")";
@@ -307,8 +420,20 @@ switch($params[0]){
 				}
 				$database->endTransaction();
 				
-				echo "hier der payload!";
-				print_r($payload);
+				//put out all new tasks
+				$sql="SELECT task_id, description, status FROM tl_tasks WHERE task_id IN (:taskidstr)";
+				$database->query($sql);
+				$database->bind(":taskidstr",implode(",",$newTasks));
+				$res=$database->resultset();
+				
+				foreach($res as &$item){
+					//generate url
+					$absolute_url = full_url( $_SERVER );
+					$absolute_url=substr($absolute_url,0,strpos($absolute_url,$user['u_name'])).$user['u_name']."/"."tasks/".$item['task_id'];
+					$item['rel']=$absolute_url;
+				}
+				$output=$res;
+				http_response_code(201);
 			}
 		}
 	}
@@ -325,9 +450,11 @@ if(strlen($possible_errors)>0){
 	$output=$possible_errors;
 }
 
+if(count($output)>0){
 header('Content-Type: application/json');
 echo json_encode($output);
-
+}
+else http_response_code(200);
 
 /** Functions **/
 
@@ -349,4 +476,23 @@ function is_admin(){
   //return true if no user auth is given
   return true;
 }
+
+
+function url_origin( $s, $use_forwarded_host = false )
+{
+	$ssl      = ( ! empty( $s['HTTPS'] ) && $s['HTTPS'] == 'on' );
+	$sp       = strtolower( $s['SERVER_PROTOCOL'] );
+	$protocol = substr( $sp, 0, strpos( $sp, '/' ) ) . ( ( $ssl ) ? 's' : '' );
+	$port     = $s['SERVER_PORT'];
+	$port     = ( ( ! $ssl && $port=='80' ) || ( $ssl && $port=='443' ) ) ? '' : ':'.$port;
+	$host     = ( $use_forwarded_host && isset( $s['HTTP_X_FORWARDED_HOST'] ) ) ? $s['HTTP_X_FORWARDED_HOST'] : ( isset( $s['HTTP_HOST'] ) ? $s['HTTP_HOST'] : null );
+	$host     = isset( $host ) ? $host : $s['SERVER_NAME'] . $port;
+	return $protocol . '://' . $host;
+}
+
+function full_url( $s, $use_forwarded_host = false )
+{
+	return url_origin( $s, $use_forwarded_host ) . $s['REQUEST_URI'];
+}
+
 ?>

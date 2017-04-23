@@ -1,5 +1,7 @@
 swagger: '2.0'
 # This is your document metadata
+# i had some problems determing when to use put and when post. this is my reference
+# http://stackoverflow.com/questions/630453/put-vs-post-in-rest
 info:
   version: "0.0.1"
   title: TODO API
@@ -18,7 +20,7 @@ security:
 paths:
   /{username}:
     get:
-      description: get a list of all projects the user has
+      description: get a summary of tasks and projects the user has
       parameters:
       - name: username 
         in: path
@@ -27,32 +29,55 @@ paths:
         description: The name of the user
       responses: 
         200: 
-          description: successful returned list of projects
+          description: successful returned summary
           schema:
-            type: array
-            items:
-              $ref: "#/definitions/projectObj"
+              $ref: "#/definitions/usersummaryObj"
           examples:
             application/json: |-
-              [{
-                 "projectname":"foo",
-                 "todos": 10,
-                 "havedones":5,
-                 "rel":"http://example.com/foouser/foo"
-              },{...}]
+              {
+                 "projects_count":5,
+                 "projects_rel": "http://example.com/foouser/projects",
+                 "todos_count":10,
+                 "todos_rel":"http://example.com/foouser/tasks?show=todo"
+              }
         401:
           description: No access, because wrong login data
       security:
         - UserSecurity: []
-    post:
-      description: post todo object(s) into the list
+  /{username}/tasks:
+    get: 
+      description: gets all tasks objects from the user
       parameters:
       - name: username 
         in: path
         type: string
         required: true
         description: The name of the user
-      - name: todos
+      - name: show
+        in: query
+        type: string
+        required: false
+        description: status filter parameter (todo, have-done,cancelled)
+      security:
+        - UserSecurity: []
+      responses:
+        200:
+          description: successful returned list of tasks
+          schema: 
+            type: array
+            items:
+              $ref: "#/definitions/brief_taskobj"
+        401:
+          description: No access, because wrong user login data
+    post:
+      description: post task object(s) into the list
+      parameters:
+      - name: username 
+        in: path
+        type: string
+        required: true
+        description: The name of the user
+      - name: tasks
         required: true
         in: body
         description: array of new tasks
@@ -65,14 +90,23 @@ paths:
       responses:
         201: 
           description: Tasks have been created
+          schema: 
+            type: array
+            items:
+              $ref: "#/definitions/brief_taskobj"
         401:
           description: No permission to create todos
         400: 
           description: insufficient or wrong data
-  /tasks/{id}:
+  /{username}/tasks/{id}:
     get:
       description: get a specific task by id
       parameters:
+      - name: username
+        in: path
+        type: string
+        required: true
+        description: The name of the user who owns the task
       - name: id 
         in: path
         type: integer
@@ -87,6 +121,11 @@ paths:
           description: No access, because wrong user login data
     put:
       parameters:
+      - name: username
+        in: path
+        type: string
+        required: true
+        description: The name of the user who owns the task
       - name: id 
         in: path
         type: integer
@@ -127,9 +166,10 @@ paths:
           examples:
             application/json: |-
               [{
-                 "description":"footask",
-                 "status":"todo",
-                 "rel":"http://example.com/tasks/5"
+                "task_id": 13
+                "description":"footask",
+                "status":"todo",
+                "rel":"http://example.com/tasks/5"
               },{...}]
         401:
           description: No access, because wrong user login data
@@ -158,7 +198,7 @@ paths:
       security: 
         - AdminSecurity: []
     delete:
-      description: deletes a user from the list
+      description: deletes users from the list
       consumes:
         - application/json
       parameters:
@@ -264,6 +304,17 @@ securityDefinitions:
     type: basic
     
 definitions:
+  usersummaryObj:
+    type: object
+    properties:
+      projects_count:
+        type: integer
+      projects_rel: 
+        type: string
+      todos_count:
+        type: integer
+      todos_rel:
+        type: string
   projectObj:
     type: object
     properties:
@@ -278,6 +329,8 @@ definitions:
   brief_taskobj:
     type: object
     properties:
+      task_id:
+        type: integer
       description:
         type: string
       status:
