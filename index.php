@@ -51,18 +51,28 @@ get the path from the mod reqrite htaccess right and extract all variables neede
  * **/
 $accepts=explode(", ",$_SERVER['HTTP_ACCEPT']);
 $method=$_SERVER['REQUEST_METHOD'];
-//remove query from request uri
-$query_params=substr($_SERVER['REQUEST_URI'],strpos($_SERVER['REQUEST_URI'],"?")+1);
 
-if(!strpos($_SERVER['REQUEST_URI'],"?")===false)
-	$req_uri=substr($_SERVER['REQUEST_URI'],0,strpos($_SERVER['REQUEST_URI'],"?"));
+
+$url_prefix=str_replace("index.php","",$_SERVER['SCRIPT_NAME']);
+
+$temp_url="/".str_replace($url_prefix, "", $_SERVER['REQUEST_URI']);
+
+//remove query from request uri
+$query_params=substr($temp_url,strpos($temp_url,"?")+1);
+
+
+
+if(!strpos($temp_url,"?")===false)
+	$req_uri=substr($temp_url,0,strpos($temp_url,"?"));
 else 
-	$req_uri=$_SERVER['REQUEST_URI'];
+	$req_uri=$temp_url;
 $tempparams=explode("/",$req_uri);
+
+
 $params=array();
+$params[]=$tempparams[1];
 $params[]=$tempparams[2];
 $params[]=$tempparams[3];
-$params[]=$tempparams[4];
 
 $url_query=array();
 parse_str($query_params,$url_query);
@@ -280,18 +290,206 @@ switch($params[0]){
 							$absolute_url=substr($absolute_url,0,strpos($absolute_url,$user['u_name'])).$user['u_name']."/"."tasks/".$item['task_id'];
 							$item['rel']=$absolute_url;
 						}
+						
 						$output=$result;
 					}
 				}
 				else if($method=="DELETE"){
-					/**@TODO  IMPLEMENT**/
-					http_response_code(501);
-					die();
+					$payload =json_decode(file_get_contents('php://input'));
+					if(!is_array($payload)){
+						http_response_code(400);
+						die();
+					}
+					$database->beginTransaction();
+					foreach($payload as $task){
+						//check if user owns that task
+						$database->query("SELECT task_id FROM tl_tasks,tl_users_tasks WHERE task_id=:task_id AND t_id=user_id AND user_id=:user_id");
+						$database->bind(":task_id",$task);
+						$database->bind(":user_id",$user['u_id']);
+						$res=$database->single();
+						$error=$database->error;
+						
+						if(is_numeric($res['task_id'])){
+							$database->query("DELETE FROM tl_tasks WHERE task_id=:task_id");
+							$database->bind(":task_id",$res['task_id']);
+							$database->execute();
+							$error.=$database->error;
+							
+							$database->query("DELETE FROM tl_tasks_history WHERE t_id=:task_id");
+							$database->bind(":task_id",$res['task_id']);
+							$database->execute();
+							$error.=$database->error;
+							
+							$database->query("DELETE FROM tl_users_tasks WHERE t_id=:task_id");
+							$database->bind(":task_id",$res['task_id']);
+							$database->execute();
+							$error.=$database->error;
+							
+							if($error!=""){
+								$database->cancelTransaction();
+								echo $error;
+								http_response_code(400);
+								die();
+							}
+						}else{
+							$database->cancelTransaction();
+							http_response_code(401);
+							die();
+						}
+					}
+					$database->endTransaction();
 				}
-				else if($mehtod=="PUT"){
-					/**@TODO  IMPLEMENT**/
-					http_response_code(501);
-					die();
+				else if($method=="PUT"){
+					$payload =json_decode(file_get_contents('php://input'));
+					if(!is_array($payload)){
+						http_response_code(400);
+						die();
+					}
+					$database->beginTransaction();
+					$newTasks=array();
+					foreach($payload as $task){
+						if(!is_numeric($task->task_id)){
+							http_response_code(400);
+							die();
+						}
+						//check if user owns that task
+						$database->query("SELECT task_id FROM tl_tasks,tl_users_tasks WHERE task_id=:task_id AND t_id=user_id AND user_id=:user_id");
+						$database->bind(":task_id",$task->task_id);
+						$database->bind(":user_id",$user['u_id']);
+						$res=$database->single();
+						$error=$database->error;
+						
+						if(!is_numeric($res['task_id'])){
+							$database->cancelTransaction();
+							http_response_code(401);
+							die();
+						}
+						
+						//task desctiption cannot be empty
+						$insert_array=array();
+						
+						if(isset($task->task_description)&&$task->task_description!=""){
+							$insert_array["description"]=$task->task_description;
+						}
+						
+						if(isset($task->urgent)){
+							$insert_array["urgent"]=$task->urgent;
+						}
+						if(isset($task->important)){
+							$insert_array['important']=$task->important;
+						}
+						if(isset($task->status)){
+							$insert_array['status']=$task->status;
+							
+							$database->query("INSERT INTO tl_tasks_history (t_id,status,user_id,timestamp) VALUES (:t_id,:status,:user_id,:timestamp)");
+							$database->bind(":t_id",$res['task_id']);
+							$database->bind(":status","created");
+							$database->bind(":user_id",$user['u_id']);
+							$database->bind(":timestamp",time());
+							$database->execute();
+							$error.=$database->error;
+						}
+						if(isset($task->deadline)){
+							$t=strtotime($task->deadline);
+							$insert_array['deadline']=$t;
+						}
+						if(isset($task->repeat_interval)){
+							$t=strtotime($task->repeat_interval);
+							$diff=time();
+							$t=t-$diff;
+							$insert_array['repeat_interval']=$t;
+						}
+						if(isset($task->repeat_interval)){
+							$t=strtotime($task->repeat_interval);
+							if($t>0){
+								$diff=time();
+								$t=t-$diff;
+							}
+							$insert_array['repeat_interval']=$t;
+						}
+						if(isset($task->repeat_since)){
+							$t=strtotime($task->repeat_since);
+							$insert_array['repeat_since']=$t;
+						}
+						if(isset($task->repeat_until)){
+							$t=strtotime($task->repeat_until);
+							$insert_array['repeat_until']=$t;
+						}
+						
+						$sql="UPDATE tl_tasks SET ";
+								
+						foreach($insert_array as $key=>$item){
+							$sql.=$key."=:".$key.",";
+						}
+						$sql=substr($sql,0,strlen($sql)-1);
+						$sql.=" WHERE task_id=:task_id";
+												
+						$database->query($sql);
+						$database->bind(":task_id",$res['task_id']);
+						
+						foreach($insert_array as $key=>$item){
+							$database->bind(":".$key,$item);
+						}
+						
+						$database->execute();
+						
+						$error.=$database->error;
+						
+						if(is_array($task->projects)){
+							
+							$database->query("DELETE FROM tl_projects_tasks WHERE task_id=:task_id");
+							$database->bind(":task_id",$res['task_id']);
+							$database->execute();
+							$error.=$database->error;
+							
+							foreach($task->projects as $proj){
+								$database->query("SELECT project_id FROM tl_projects WHERE project_name=:project_name AND user_id=:user_id");
+								$database->bind(":project_name",$proj);
+								$database->bind(":user_id",$user['u_id']);
+								$res2=$database->single();
+								$error.=$database->error;
+								if(!is_numeric($res2['project_id'])){
+									$database->query("INSERT INTO tl_projects (project_name,user_id) VALUES (:project_name,:user_id)");
+									$database->bind(":project_name",$proj);
+									$database->bind(":user_id",$user['u_id']);
+									$database->execute();
+									$error.=$database->error;
+									$res2['project_id']=$database->lastInsertId();
+								}
+								
+								$database->query("INSERT INTO tl_projects_tasks (project_id,task_id) VALUES (:project_id,:task_id)");
+								$database->bind(":project_id",$res2['project_id']);
+								$database->bind(":task_id",$res['task_id']);
+								$database->execute();
+								$error.=$database->error;
+							}
+						}
+						
+						if($error!=""){
+							$database->cancelTransaction();
+							http_response_code(400);
+							echo $error;
+							die();
+						}
+						
+						$newTasks[]=$res['task_id'];
+					}	
+					$database->endTransaction();
+					
+					//put out all new tasks
+					$sql="SELECT task_id, description, status FROM tl_tasks WHERE task_id IN (:taskidstr)";
+					$database->query($sql);
+					$database->bind(":taskidstr",implode(",",$newTasks));
+					$res=$database->resultset();
+					
+					foreach($res as &$item){
+						//generate url
+						$absolute_url = full_url( $_SERVER );
+						$absolute_url=substr($absolute_url,0,strpos($absolute_url,$user['u_name'])).$user['u_name']."/"."tasks/".$item['task_id'];
+						$item['rel']=$absolute_url;
+					}
+					$output=$res;
+					
 				}
 				else if($method=="POST"){
 				$payload =json_decode(file_get_contents('php://input'));
@@ -448,6 +646,10 @@ ob_end_clean();
 if(strlen($possible_errors)>0){
 	http_response_code(500);
 	$output=$possible_errors;
+	
+	echo $output;
+	die();
+	
 }
 
 if(count($output)>0){

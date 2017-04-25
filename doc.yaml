@@ -98,6 +98,60 @@ paths:
           description: No permission to create todos
         400: 
           description: insufficient or wrong data
+    delete:
+      description: delete specific tasks by their id
+      parameters:
+      - name: username
+        in: path
+        type: string
+        required: true
+        description: The name of the user who owns the task
+      - name: ids
+        required: true
+        in: body
+        description: arrays of tasks
+        schema:
+          type: array
+          items:
+            type: integer
+      responses:
+        200:
+          description: successful deleted tasks list
+        401:
+          description: No access, because wrong user login data
+        400: 
+          description: insufficient or wrong data
+      security: 
+      - UserSecurity: []
+    put:
+      description: alters specific tasks by their id
+      parameters:
+      - name: username
+        in: path
+        type: string
+        required: true
+        description: The name of the user who owns the task
+      - name: tasks
+        required: true
+        in: body
+        description: arrays of tasks
+        schema:
+          type: array
+          items:
+            $ref: "#/definitions/taskObj"
+      responses:
+        200:
+          description: successful altered tasks
+          schema: 
+            type: array
+            items:
+              $ref: "#/definitions/brief_taskobj"
+        401:
+          description: No access, because wrong user login data
+        400: 
+          description: insufficient or wrong data
+      security: 
+      - UserSecurity: []
   /{username}/tasks/{id}:
     get:
       description: get a specific task by id
@@ -119,6 +173,8 @@ paths:
           description: successful returned todo list
         401:
           description: No access, because wrong user login data
+        400: 
+          description: insufficient or wrong data
     put:
       parameters:
       - name: username
@@ -140,9 +196,9 @@ paths:
           description: No access, because wrong user login data
         400: 
           description: insufficient or wrong data
-  /{username}/{projectname}:
+  /{username}/projects/{projectname}:
     get:
-      description: get all tasks for user {username} and project {projectname}. set project to "all" for all todos of every project
+      description: get all tasks for user {username} and project {projectname}.
       parameters:
         - name: username 
           in: path
