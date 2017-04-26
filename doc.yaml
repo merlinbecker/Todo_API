@@ -10,7 +10,7 @@ info:
     name: MerlinBecker
     url: https://github.com/merlinbecker/Todo_API
 host: merl.be
-basePath: /todo
+basePath: /todo_api/v0.1/
 # Describe your paths here
 schemes: ["http"]
 
