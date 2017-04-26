@@ -563,9 +563,8 @@ switch($params[0]){
 					$database->endTransaction();
 					
 					//put out all new tasks
-					$sql="SELECT task_id, description, status FROM tl_tasks WHERE task_id IN (:taskidstr)";
+					$sql="SELECT task_id, description, status FROM tl_tasks WHERE task_id IN (".implode(",",$newTasks).")";
 					$database->query($sql);
-					$database->bind(":taskidstr",implode(",",$newTasks));
 					$res=$database->resultset();
 					
 					foreach($res as &$item){
@@ -705,11 +704,9 @@ switch($params[0]){
 				$database->endTransaction();
 				
 				//put out all new tasks
-				$sql="SELECT task_id, description, status FROM tl_tasks WHERE task_id IN (:taskidstr)";
+				$sql="SELECT task_id, description, status FROM tl_tasks WHERE task_id IN (".implode(",",$newTasks).")";
 				$database->query($sql);
-				$database->bind(":taskidstr",implode(",",$newTasks));
 				$res=$database->resultset();
-				
 				foreach($res as &$item){
 					//generate url
 					$absolute_url = full_url( $_SERVER );
