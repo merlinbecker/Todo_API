@@ -503,6 +503,7 @@ switch($params[0]){
 							$insert_array['repeat_until']=$t;
 						}
 						
+						if(count($insert_array)>0){
 						$sql="UPDATE tl_tasks SET ";
 								
 						foreach($insert_array as $key=>$item){
@@ -521,7 +522,7 @@ switch($params[0]){
 						$database->execute();
 						
 						$error.=$database->error;
-						
+						}
 						if(is_array($task->projects)){
 							
 							$database->query("DELETE FROM tl_projects_tasks WHERE task_id=:task_id");
