@@ -710,6 +710,7 @@ switch($params[0]){
 				$database->bind(":taskidstr",implode(",",$newTasks));
 				$res=$database->resultset();
 				
+				
 				foreach($res as &$item){
 					//generate url
 					$absolute_url = full_url( $_SERVER );
