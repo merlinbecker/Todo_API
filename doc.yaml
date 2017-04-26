@@ -77,6 +77,11 @@ paths:
         type: string
         required: true
         description: The name of the user
+      - name: show
+        in: query
+        type: string
+        required: false
+        description: status filter parameter (todo, have-done,cancelled)
       - name: tasks
         required: true
         in: body
@@ -224,7 +229,6 @@ paths:
               $ref: "#/definitions/brief_taskobj"
         401:
           description: No access, because wrong user login data
-  
   /users:
     get:
       description: Gets all todo list users
@@ -286,7 +290,6 @@ paths:
           description: a new user was created
         400: 
           description: insufficient or wrong data
-          
   # This is a path endpoint. Change it.
   /settings:
     # This is a HTTP operation

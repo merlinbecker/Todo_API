@@ -326,9 +326,17 @@ switch($params[0]){
 							$sql.="AND tl_projects.project_name=:project_name ";
 							$sql.="AND tl_projects.user_id=:user_id";
 							
+							if(isset($url_query['show'])){
+								$sql.=" AND status=:status";
+							}
+							
+							
 							$database->query($sql);
 							$database->bind(":user_id",$user['u_id']);
 							$database->bind(":project_name",$params[2]);
+							if(isset($url_query['show'])){
+								$database->bind(":status",$url_query['show']);
+							}
 							
 							$result=$database->resultset();
 							
