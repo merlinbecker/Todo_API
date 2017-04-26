@@ -173,8 +173,6 @@ switch($params[0]){
 			$database->endTransaction();
 		}
 		else{
-			//TODO: Für später aufheben!
-			//, FROM_UNIXTIME(last_login, '%Y-%m-%d %H:%i:%s') 
 			$sql="SELECT u_id,u_name,u_email FROM `".Installer::sharedInstaller()->conf['db_database']."`.`tl_users`";
 			$database->query($sql);
 			$database->execute();
@@ -187,9 +185,6 @@ switch($params[0]){
 		die();
 	}
   break;
-	case "tasks":
-		echo "ITS A SPECIFIC TASK, BUT IT IS NOT IMPLEMENTED YET!";
-	break;
 	default:
 	//bail out if username is empty
 	if($params[0]==""){
@@ -202,24 +197,22 @@ switch($params[0]){
 	$database->query($sql);
 	$database->bind(':u_name',$params[0]);
 	$user=$database->single();
-	if($user['u_name']==$_SERVER['PHP_AUTH_USER']&&password_verify($_SERVER['PHP_AUTH_PW'],$user['u_password']))
+	if(is_valid_user($user))
 	{		
 		//if second param ist a number, than it's a task, else it's a project
 		//if the project is 'all' or empty, then it's all tasks for that user
 		//if the method is PUT, then a todo is put here
 		/**
 		 * TODO: even allow if posted under a project and keep this project as default.
-		 * 
 		 * this is a default task creation routine 
 		 * 
 		 * @TODO auslagern
-		 * 
 		 * @TODO allow CSV values like 1,2,3
 		 * **/
 		if($params[1]==""){
 			if ($method=="GET"){
 				/*
-				usersummaryObj {
+					usersummaryObj {
 					projects_count:
 					integer
 					projects_rel:
@@ -228,7 +221,7 @@ switch($params[0]){
 					integer
 					todos_rel:
 					string
-					*/
+				*/
 				//first, get number of projects for that user
 				$sql="SELECT COUNT(project_id) as projects_count FROM tl_projects WHERE user_id=:user_id";
 				$database->query($sql);
@@ -261,37 +254,123 @@ switch($params[0]){
 			if($params[1]=="tasks"||$params[1]=="projects"){
 				if($method=="GET"){
 					if($params[1]=="tasks"){
-						/**
-						 *  description:
-								status:
-								rel: 
-						 **/
-						
-						$sql="SELECT task_id, description, status FROM tl_tasks, tl_users_tasks WHERE tl_users_tasks.t_id=task_id AND tl_users_tasks.user_id=:user_id";
-						
-						if(isset($url_query['show'])){
-							$sql.=" AND status=:status";
+						if(is_numeric($params[2])){
+							$task_id=$params[2];
+							$sql="SELECT task_id,description as task_description,urgent,important,status,";
+							$sql.="IF(deadline=0,'-',FROM_UNIXTIME(deadline,'%Y-%m-%d %H:%i:%s')) as deadline,";
+							$sql.="IF(repeat_interval=0,'-',FROM_UNIXTIME(repeat_interval,'%Y-%m-%d %H:%i:%s')) as repeat_interval,";
+							$sql.="IF(repeat_since=0,'-',FROM_UNIXTIME(repeat_since,'%Y-%m-%d %H:%i:%s')) as repeat_since,";
+							$sql.="IF(repeat_until=0,'-',date_format(repeat_until,'%Y-%m-%d %H:%i:%s')) as repeat_until";
+							$sql.=" FROM tl_tasks WHERE task_id=:task_id";
+							
+							$database->query($sql);
+							$database->bind(":task_id",$task_id);
+							$output=$database->single();
+							echo $database->error;
+							if($database->rowCount()==0){
+								//no task found under given id
+								http_response_code(404);
+								die();
+							}
+							else{
+								//get projects for task
+								$database->query("SELECT project_name FROM tl_projects,tl_projects_tasks WHERE tl_projects_tasks.project_id=tl_projects.project_id AND tl_projects_tasks.task_id=:task_id");
+								$database->bind(":task_id",$task_id);
+								$projs=$database->resultset();
+								echo $database->error;
+								if(!is_array($output['projects']))$output['projects']=array();
+								foreach($projs as $proj){
+									$output['projects'][]=$proj['project_name'];
+								}
+							}
 						}
-						
-						$database->query($sql);
-						$database->bind(':user_id',$user['u_id']);
-						
-						if(isset($url_query['show'])){
-							$database->bind(":status",$url_query['show']);
+						else{
+								/**
+								 *  description:
+									status:
+									rel: 
+								 **/
+								$sql="SELECT task_id, description, status FROM tl_tasks, tl_users_tasks WHERE tl_users_tasks.t_id=task_id AND tl_users_tasks.user_id=:user_id";
+								
+								if(isset($url_query['show'])){
+									$sql.=" AND status=:status";
+								}
+								
+								$database->query($sql);
+								$database->bind(':user_id',$user['u_id']);
+								
+								if(isset($url_query['show'])){
+									$database->bind(":status",$url_query['show']);
+								}
+								
+								
+								$result=$database->resultset();
+								echo $database->error;
+								
+								foreach($result as &$item){
+									//generate url
+									$absolute_url = full_url( $_SERVER );
+									$absolute_url=substr($absolute_url,0,strpos($absolute_url,$user['u_name'])).$user['u_name']."/"."tasks/".$item['task_id'];
+									$item['rel']=$absolute_url;
+								}
+								
+								$output=$result;
 						}
-						
-						
-						$result=$database->resultset();
-						echo $database->error;
-						
-						foreach($result as &$item){
-							//generate url
-							$absolute_url = full_url( $_SERVER );
-							$absolute_url=substr($absolute_url,0,strpos($absolute_url,$user['u_name'])).$user['u_name']."/"."tasks/".$item['task_id'];
-							$item['rel']=$absolute_url;
+					}
+					if($params[1]=="projects"){
+						if(strlen($params[2])>0){
+							
+							$sql="SELECT tl_tasks.task_id,description, status FROM tl_tasks,tl_projects_tasks,tl_projects ";
+							$sql.="WHERE tl_tasks.task_id=tl_projects_tasks.task_id ";
+							$sql.="AND tl_projects.project_id=tl_projects_tasks.project_id ";
+							$sql.="AND tl_projects.project_name=:project_name ";
+							$sql.="AND tl_projects.user_id=:user_id";
+							
+							$database->query($sql);
+							$database->bind(":user_id",$user['u_id']);
+							$database->bind(":project_name",$params[2]);
+							
+							$result=$database->resultset();
+							
+							echo $database->error;
+							foreach($result as &$item){
+								//generate url
+								$absolute_url = full_url( $_SERVER );
+								$absolute_url=substr($absolute_url,0,strpos($absolute_url,$user['u_name'])).$user['u_name']."/"."tasks/".$item['task_id'];
+								$item['rel']=$absolute_url;
+							}
+							$output=$result;	
+						}else{
+							$database->query("SELECT project_id,project_name FROM tl_projects WHERE user_id=:user_id");
+							$database->bind(":user_id",$user['u_id']);
+							$result=$database->resultset();
+							
+							echo $database->error;
+							foreach($result as &$item){
+								$sql="SELECT COUNT(tl_tasks.task_id) as todos FROM tl_tasks,tl_projects_tasks WHERE tl_projects_tasks.task_id=tl_tasks.task_id AND tl_projects_tasks.project_id=:project_id AND status=:status";
+								$database->query($sql);
+								$database->bind(":project_id",$item['project_id']);
+								$database->bind(":status","todo");
+								$erg=$database->single();
+								echo $database->error;
+								$item['todos']=$erg['todos'];
+								
+								$database->query($sql);
+								$database->bind(":project_id",$item['project_id']);
+								$database->bind(":status","have-done");
+								$erg=$database->single();
+								echo $database->error;
+								$item['havedones']=$erg['todos'];
+								
+								unset($item['project_id']);
+								
+								$absolute_url=full_url( $_SERVER );
+								$absolute_url=substr($absolute_url,0,strpos($absolute_url,$user['u_name'])).$user['u_name']."/"."projects/".$item['project_name'];
+								$item['rel']=$absolute_url;
+							}
+							
+							$output=$result;
 						}
-						
-						$output=$result;
 					}
 				}
 				else if($method=="DELETE"){
@@ -471,7 +550,6 @@ switch($params[0]){
 							echo $error;
 							die();
 						}
-						
 						$newTasks[]=$res['task_id'];
 					}	
 					$database->endTransaction();
@@ -677,6 +755,13 @@ function is_admin(){
   }
   //return true if no user auth is given
   return true;
+}
+
+function is_valid_user($user){
+	if(isset(Installer::sharedInstaller()->conf['basic_auth_pw']))
+		if(Installer::sharedInstaller()->conf['uses_basic_auth']==1)
+			return ($user['u_name']==$_SERVER['PHP_AUTH_USER']&&password_verify($_SERVER['PHP_AUTH_PW'],$user['u_password']));
+	return true;	
 }
 
 

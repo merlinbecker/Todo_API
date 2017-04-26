@@ -3,7 +3,7 @@ swagger: '2.0'
 # i had some problems determing when to use put and when post. this is my reference
 # http://stackoverflow.com/questions/630453/put-vs-post-in-rest
 info:
-  version: "0.0.1"
+  version: "0.1.0"
   title: TODO API
   description: an API for managing todo lists and getting have-done lists
   contact:
@@ -170,32 +170,35 @@ paths:
          - UserSecurity: []
       responses:
         200:
-          description: successful returned todo list
+          description: successful returned task
+          schema:
+             $ref: "#/definitions/taskObj"
         401:
           description: No access, because wrong user login data
-        400: 
-          description: insufficient or wrong data
-    put:
+        404:
+          description: Tasks not found
+  /{username}/projects:
+    get:
+      description: get all projects for user {username}.
       parameters:
-      - name: username
-        in: path
-        type: string
-        required: true
-        description: The name of the user who owns the task
-      - name: id 
-        in: path
-        type: integer
-        required: true
-        description: the tasks ID
-      security: 
-         - UserSecurity: []
+        - name: username
+          in: path
+          type: string
+          required: true
+          description: The name of the user
+      security:
+        - UserSecurity: []
+      produces:
+        - application/json
       responses:
         200:
-          description: successful modified
+          description: successful returned projects list
+          schema:
+            type: array
+            items:
+              $ref: "#/definitions/projectObj"
         401:
           description: No access, because wrong user login data
-        400: 
-          description: insufficient or wrong data
   /{username}/projects/{projectname}:
     get:
       description: get all tasks for user {username} and project {projectname}.
@@ -219,14 +222,6 @@ paths:
             type: array
             items:
               $ref: "#/definitions/brief_taskobj"
-          examples:
-            application/json: |-
-              [{
-                "task_id": 13
-                "description":"footask",
-                "status":"todo",
-                "rel":"http://example.com/tasks/5"
-              },{...}]
         401:
           description: No access, because wrong user login data
   
